@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockPulse - Control de Inventario y Reabastecimiento</title>
+
+  <!-- Tailwind CSS por CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Estilos base para tablets y dispositivos táctiles */
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    /* Scroll horizontal suave y controlado */
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- ======================================================== -->
+  <!-- BANNER INFORMATIVO (Si las credenciales están pendientes)  -->
+  <!-- ======================================================== -->
+  <div id="banner-configuracion" class="hidden bg-amber-500 text-white px-4 py-3 shadow-md">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-2 text-sm font-medium">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span>
+          <strong>Configuración pendiente:</strong> Configura tus credenciales reales en <code class="bg-amber-600 px-1.5 py-0.5 rounded font-mono text-xs">js/config.js</code> para conectar con Supabase y N8N.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR / HEADER                    -->
+  <!-- ======================================================== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Marca y Logotipo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-none">StockPulse</h1>
+            <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200">v1.0</span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Control de Inventario y Reabastecimiento Automatizado</p>
+        </div>
+      </div>
+
+      <!-- Estado de conexión Realtime -->
+      <div class="flex items-center gap-3">
+        <div id="badge-conexion" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 transition-colors">
+          <span class="w-2 h-2 rounded-full bg-slate-400 mr-1.5 animate-pulse"></span>
+          Conectando...
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- CONTENIDO PRINCIPAL                                      -->
+  <!-- ======================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- SECCIÓN 1: TARJETAS KPIS SUPERIORES -->
+    <section aria-label="Métricas de Inventario" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      
+      <!-- KPI: Total Productos -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Productos</span>
+          <div id="kpi-total-productos" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</div>
+          <p class="text-[11px] text-slate-400">Referencias registradas en catálogo</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-blue-50 text-brand-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- KPI: Productos Críticos -->
+      <div id="card-kpi-criticos" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between transition-all duration-200">
+        <div class="space-y-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-red-600">Productos Críticos</span>
+          <div id="kpi-productos-criticos" class="text-3xl font-extrabold text-red-600 tracking-tight">0</div>
+          <p class="text-[11px] text-red-500">Stock ≤ Mínimo de seguridad</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- KPI: Alertas Generadas -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Alertas Enviadas</span>
+          <div id="kpi-total-alertas" class="text-3xl font-extrabold text-slate-900 tracking-tight">0</div>
+          <p class="text-[11px] text-slate-400">Notificaciones automáticas a proveedores</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECCIÓN 2: HERRAMIENTAS DE BÚSQUEDA, FILTRO Y CREACIÓN -->
+    <section class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+      
+      <!-- Búsqueda y Selector de Bodega -->
+      <div class="flex flex-col sm:flex-row gap-3 flex-1">
+        
+        <!-- Input de Búsqueda -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <input
+            type="text"
+            id="input-buscar"
+            placeholder="Buscar por SKU o nombre de producto..."
+            class="touch-target w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 transition-colors"
+          >
+        </div>
+
+        <!-- Filtro por Bodega -->
+        <div class="w-full sm:w-56">
+          <select
+            id="filtro-bodega"
+            class="touch-target w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 transition-colors text-slate-700"
+          >
+            <option value="">Todas las bodegas</option>
+          </select>
+        </div>
+
+        <!-- Botón Limpiar Filtros -->
+        <button
+          type="button"
+          id="btn-limpiar-filtros"
+          class="touch-target px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shrink-0"
+          title="Limpiar filtros de búsqueda"
+        >
+          Limpiar
+        </button>
+
+      </div>
+
+      <!-- Botón Nuevo Producto (CTA principal) -->
+      <button
+        type="button"
+        id="btn-abrir-modal-nuevo"
+        class="touch-target inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold text-sm text-white bg-brand-600 hover:bg-brand-700 active:scale-95 shadow-md shadow-brand-500/25 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 shrink-0"
+      >
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Nuevo Producto
+      </button>
+
+    </section>
+
+    <!-- SECCIÓN 3: TABLA DE INVENTARIO EN TIEMPO REAL -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      
+      <!-- Encabezado de la tabla -->
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-bold text-slate-900">Inventario en Tiempo Real</h2>
+          <span id="badge-total-filas" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+            0 productos
+          </span>
+        </div>
+        <p class="text-xs text-slate-500">
+          Las filas en <span class="text-red-600 font-bold">ROJO</span> indican que el stock está en o por debajo del mínimo.
+        </p>
+      </div>
+
+      <!-- Contenedor con scroll horizontal para Tablets y Móviles -->
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="min-w-full divide-y divide-slate-200 text-left">
+          <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-3.5">SKU</th>
+              <th scope="col" class="px-4 py-3.5">Producto</th>
+              <th scope="col" class="px-4 py-3.5">Bodega</th>
+              <th scope="col" class="px-4 py-3.5 text-center">Stock Actual</th>
+              <th scope="col" class="px-4 py-3.5 text-center">Stock Mínimo</th>
+              <th scope="col" class="px-4 py-3.5 text-center">Estado</th>
+              <th scope="col" class="px-4 py-3.5">Proveedor</th>
+              <th scope="col" class="px-4 py-3.5 text-right">Acciones de Stock</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-inventario" class="divide-y divide-slate-200 bg-white">
+            <!-- Filas inyectadas dinámicamente -->
+          </tbody>
+        </table>
+
+        <!-- Estado Vacío -->
+        <div id="inventario-vacio" class="hidden py-12 text-center text-slate-500">
+          <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+          </svg>
+          <p class="mt-2 text-sm font-medium text-slate-700">No se encontraron productos en el inventario</p>
+          <p class="text-xs text-slate-400">Ajusta los filtros de búsqueda o agrega un nuevo producto.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECCIÓN 4: HISTORIAL DE ALERTAS DE REABASTECIMIENTO -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      
+      <!-- Encabezado del panel de alertas -->
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 bg-gradient-to-r from-amber-50/50 to-white">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+          <h2 class="text-base font-bold text-slate-900">Historial de Alertas de Reabastecimiento</h2>
+          <span id="badge-total-alertas-panel" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+            0 registros
+          </span>
+        </div>
+        <p class="text-xs text-slate-500">Sincronizado en tiempo real con Supabase</p>
+      </div>
+
+      <!-- Tabla de historial de alertas -->
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="min-w-full divide-y divide-slate-200 text-left">
+          <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-3">Fecha y Hora</th>
+              <th scope="col" class="px-4 py-3">SKU</th>
+              <th scope="col" class="px-4 py-3">Producto</th>
+              <th scope="col" class="px-4 py-3 text-center">Stock Registrado</th>
+              <th scope="col" class="px-4 py-3 text-center">Mínimo</th>
+              <th scope="col" class="px-4 py-3 text-center">Cant. Sugerida</th>
+              <th scope="col" class="px-4 py-3">Proveedor Notificado</th>
+              <th scope="col" class="px-4 py-3 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-alertas" class="divide-y divide-slate-100 bg-white">
+            <!-- Filas de alertas inyectadas dinámicamente -->
+          </tbody>
+        </table>
+
+        <!-- Estado Vacío de Alertas -->
+        <div id="alertas-vacias" class="py-8 text-center text-slate-500">
+          <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p class="mt-1 text-xs font-medium text-slate-600">No hay alertas registradas actualmente</p>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: REGISTRAR NUEVO PRODUCTO                          -->
+  <!-- ======================================================== -->
+  <div
+    id="modal-nuevo-producto"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-nuevo"
+  >
+    <div class="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+      
+      <!-- Cabecera del Modal -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 id="titulo-modal-nuevo" class="text-lg font-bold text-slate-900">Registrar Nuevo Producto</h3>
+          <p class="text-xs text-slate-500">Ingresa la información para dar de alta la referencia en el inventario.</p>
+        </div>
+        <button
+          type="button"
+          id="btn-cerrar-modal-nuevo"
+          class="touch-target text-slate-400 hover:text-slate-700 p-2 rounded-lg transition-colors"
+          aria-label="Cerrar modal"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Formulario de Nuevo Producto -->
+      <form id="form-nuevo-producto" novalidate class="p-6 space-y-4">
+        
+        <!-- SKU y Nombre -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-contenedor">
+            <label for="nuevo-sku" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+              SKU <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="nuevo-sku"
+              name="sku"
+              placeholder="Ej: ALM-001"
+              autocomplete="off"
+              class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase font-mono"
+            >
+          </div>
+
+          <div class="campo-contenedor">
+            <label for="nuevo-bodega" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+              Bodega / Ubicación <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="nuevo-bodega"
+              name="bodega"
+              placeholder="Ej: Bodega Central"
+              class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+          </div>
+        </div>
+
+        <div class="campo-contenedor">
+          <label for="nuevo-nombre" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+            Nombre del Producto <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="nuevo-nombre"
+            name="nombre"
+            placeholder="Ej: Aceite para Motor Sintético 5W-30"
+            class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+        </div>
+
+        <!-- Stock Actual y Stock Mínimo -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-contenedor">
+            <label for="nuevo-stock-actual" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+              Stock Inicial <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="nuevo-stock-actual"
+              name="stock_actual"
+              min="0"
+              step="1"
+              placeholder="0"
+              class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-center font-bold"
+            >
+          </div>
+
+          <div class="campo-contenedor">
+            <label for="nuevo-stock-minimo" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+              Stock Mínimo (Seguridad) <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="nuevo-stock-minimo"
+              name="stock_minimo"
+              min="0"
+              step="1"
+              placeholder="10"
+              class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-center font-bold"
+            >
+          </div>
+        </div>
+
+        <!-- Correo del Proveedor -->
+        <div class="campo-contenedor">
+          <label for="nuevo-proveedor-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+            Correo del Proveedor <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="email"
+            id="nuevo-proveedor-email"
+            name="proveedor_email"
+            placeholder="proveedor@distribuidor.com"
+            class="touch-target w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+          <p class="text-[11px] text-slate-400 mt-1">Este correo recibirá la orden automática enviada por N8N cuando el stock caiga a nivel crítico.</p>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+          <button
+            type="button"
+            id="btn-cancelar-modal-nuevo"
+            class="touch-target w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-guardar-nuevo-producto"
+            class="touch-target w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 shadow-md shadow-brand-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            Guardar Producto
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: REGISTRAR MOVIMIENTO (ENTRADA / SALIDA)           -->
+  <!-- ======================================================== -->
+  <div
+    id="modal-movimiento"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-movimiento"
+  >
+    <div class="relative bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+      
+      <!-- Cabecera del Modal -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 id="titulo-modal-movimiento" class="text-lg font-bold text-slate-900">Registrar Movimiento</h3>
+          <p id="desc-modal-movimiento" class="text-xs text-slate-500">Ingresa la cantidad a registrar.</p>
+        </div>
+        <button
+          type="button"
+          id="btn-cerrar-modal-movimiento"
+          class="touch-target text-slate-400 hover:text-slate-700 p-2 rounded-lg transition-colors"
+          aria-label="Cerrar modal"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Formulario de Movimiento -->
+      <form id="form-movimiento" novalidate class="p-6 space-y-4">
+        
+        <!-- Tarjeta de información del producto seleccionado -->
+        <div id="info-producto-movimiento"></div>
+
+        <!-- Campo de Cantidad -->
+        <div class="campo-contenedor">
+          <label for="movimiento-cantidad" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+            Cantidad de Unidades <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            id="movimiento-cantidad"
+            name="cantidad"
+            min="1"
+            step="1"
+            placeholder="Ej: 5"
+            autocomplete="off"
+            class="touch-target w-full px-4 py-3 text-lg rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-center font-bold"
+          >
+        </div>
+
+        <!-- Previsualización de Stock Resultante -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
+          <span class="text-slate-600 font-medium">Stock estimado resultante:</span>
+          <div id="preview-stock-resultante" class="font-bold text-slate-800">
+            <span class="text-slate-400">Ingrese una cantidad</span>
+          </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+          <button
+            type="button"
+            id="btn-cancelar-modal-movimiento"
+            class="touch-target w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-confirmar-movimiento"
+            class="touch-target w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 shadow-md transition-all focus:outline-none"
+          >
+            Confirmar
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- CONTENEDOR DE NOTIFICACIONES TOAST (Flotante)             -->
+  <!-- ======================================================== -->
+  <div
+    id="toast-container"
+    class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+    aria-live="polite"
+  ></div>
+
+  <!-- Script principal como Módulo ES -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
