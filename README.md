@@ -1,3 +1,6 @@
+#URL: https://proyecto-fullstack-uptc-grupo4-stoc.vercel.app/
+
+
 # StockPulse: Control de Inventario y Reabastecimiento
 
 Solución web estática (sin backend intermedio ni paso de compilación) para la gestión de inventario en tiempo real, prevención de quiebres de stock y automatización de alertas a proveedores. Construida con HTML5, Tailwind CSS, JavaScript ES Modules, Supabase (PostgreSQL, Realtime, RPC) y Webhooks de N8N.
